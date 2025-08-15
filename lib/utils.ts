@@ -20,7 +20,7 @@ export function hexToHslTuple(hex: string): [number, number, number] {
   const max = Math.max(rP, gP, bP);
   const min = Math.min(rP, gP, bP);
   let h = 0;
-  let s = 0;
+  let s = 0;  
   const l = (max + min) / 2;
 
   if (max !== min) {
@@ -41,4 +41,22 @@ export function hexToHslTuple(hex: string): [number, number, number] {
   }
 
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+export function timeAgo(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const sec = Math.max(1, Math.floor((now - then) / 1000));
+  const units: [string, number][] = [
+    ["year", 31536000],
+    ["month", 2592000],
+    ["day", 86400],
+    ["hour", 3600],
+    ["minute", 60],
+    ["second", 1]
+  ];
+  for (const [u, s] of units) {
+    const v = Math.floor(sec / s);
+    if (v >= 1) return `${v} ${u}${v > 1 ? "s" : ""} ago`;
+  }
+  return "just now";
 }

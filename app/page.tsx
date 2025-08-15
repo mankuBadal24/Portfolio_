@@ -1,21 +1,65 @@
 import Hero from "@/components/Hero";
 import Section from "@/components/Section";
 import Container from "@/components/Container";
+import RepoGrid from "@/components/RepoGrid";
+import { RepoGridSkeleton } from "@/components/Skeletons";
+import ErrorState from "@/components/ErrorState";
 
-/** Phase 1: Static Hero + placeholder sections.
- * Phase 2 will stream Featured + Recent Repos using server components + SWR.
+/** Server components fetch initial data; routes have revalidate=60 */
+async function getJSON<T>(path: string): Promise<T> {
+  try {
+    const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const res = await fetch(`${base}${path}`, { next: { revalidate: 60 } });
+    
+    // Check if response is ok
+    if (!res.ok) {
+      console.error(`API Error: ${res.status} ${res.statusText} for ${path}`);
+      return { ok: false, data: [], reason: `API returned ${res.status}` } as T;
+    }
+    
+    // Check if response is JSON
+    const contentType = res.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      console.error(`Non-JSON response from ${path}:`, contentType);
+      return { ok: false, data: [], reason: 'Invalid response format' } as T;
+    }
+    
+    return res.json();
+  } catch (error) {
+    console.error(`Failed to fetch ${path}:`, error);
+    return { ok: false, data: [], reason: 'Network error' } as T;
+  }
+}
+
+/**
+ * Phase 1: Static Hero + placeholder sections.
+ * Phase 2: Stream Featured + Recent Repos using server components + SWR.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  // Safely fetch GitHub data with fallbacks
+  const [pinned, recent] = await Promise.all([
+    getJSON<{ ok: boolean; data: any[]; reason?: string }>("/api/github/pinned").catch(() => ({ 
+      ok: false, 
+      data: [], 
+      reason: "GitHub API route not found" 
+    })),
+    getJSON<{ ok: boolean; data: any[] }>("/api/github/repos?perPage=6").catch(() => ({ 
+      ok: false, 
+      data: [] 
+    }))
+  ]);
+
   return (
     <>
       <Hero />
+      
       <Section id="about" title="About">
         <Container className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2 space-y-4">
             <p>
-              I’m <strong>Mayank Badal</strong>, a{" "}
+              I'm <strong>Mayank Badal</strong>, a{" "}
               <strong>Full stack Developer</strong> who enjoys building end-to-end products —
-              from clean UI to robust backends. I’ve worked with Java/Spring Boot, Flutter,
+              from clean UI to robust backends. I've worked with Java/Spring Boot, Flutter,
               React, and MySQL, and I care about performance, a11y, and maintainable code.
             </p>
             <p>
@@ -58,10 +102,39 @@ export default function HomePage() {
 
       <Section id="featured" title="Featured Projects (Pinned)">
         <Container>
-          <div className="card p-6">
-            <p className="opacity-80">
-              Coming next: live pinned repositories fetched from GitHub GraphQL (Phase 2).
-            </p>
+          {!pinned.ok ? (
+            <ErrorState
+              title="Pinned repositories unavailable"
+              message={
+                pinned.reason ??
+                "GraphQL is required to fetch pinned items. View my GitHub profile instead."
+              }
+              cta={
+                <a
+                  href="https://github.com/mankuBadal24"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl bg-brand text-white px-4 py-2"
+                >
+                  View on GitHub
+                </a>
+              }
+            />
+          ) : pinned.data.length ? (
+            <RepoGrid repos={pinned.data as any} />
+          ) : (
+            <RepoGridSkeleton count={6} />
+          )}
+        </Container>
+      </Section>
+
+      <Section id="recent" title="Recent Repositories">
+        <Container>
+          {recent.ok ? <RepoGrid repos={recent.data as any} /> : <RepoGridSkeleton count={6} />}
+          <div className="mt-6">
+            <a href="/projects" className="rounded-xl border px-4 py-2">
+              Browse all projects →
+            </a>
           </div>
         </Container>
       </Section>
