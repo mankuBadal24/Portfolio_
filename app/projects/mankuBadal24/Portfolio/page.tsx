@@ -3,6 +3,8 @@ import Section from "@/components/Section";
 import RepoCard from "@/components/RepoCard";
 import { Repo } from "@/lib/types";
 
+
+
 /** Minimal detail page using REST (works without GraphQL) */
 async function getRepo(owner: string, name: string): Promise<Repo | null> {
   const base = "https://api.github.com";
